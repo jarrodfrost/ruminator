@@ -111,8 +111,6 @@ function Help({ navigation }){
 				You have slightly less than one second to
 				click after the change happens. You will feel an electrical
 				stimulation that is accompanied with the changing of letters.
-				The computer will change the intensity of the stimulation
-				according to your progress.
 				You will have breaks every few minutes. A pop up message will
 				notify you that a block has ended.
 			</Text>
