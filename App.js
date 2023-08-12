@@ -396,7 +396,7 @@ function SentencesDisplay({ route, navigation }){
 	const [pressed, setPressed] = useState(false); //whether or not the button was pressed in the past second
 	const [time, setTime] = useState(0); //the number of seconds that have passed. Used to determine when to take a break.
 	const [vibrate, setVibrate] = useState(false); //Setting from async storage. Whether to vibrate or use sound upon a miss/strike.
-	const [roundLength, setRoundLength] = useState(5); //Setting from async storage. The amount of time in seconds that the round will last.
+	const [roundLength, setRoundLength] = useState(120); //Setting from async storage. The amount of time in seconds that the round will last.
 	const [fSize, setFSize] = useState(36); //Current font size of the sentence, based on sentence length
 	const [xSentence, setXSentence] = useState(""); //Stored version of the sentence with the X's in it, used to avoid generating again on each render
 	const [xDuration, setXDuration] = useState(600); //Setting from async storage. The amount of time in milliseconds to display the X's.
