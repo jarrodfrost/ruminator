@@ -132,12 +132,14 @@ function Settings({ navigation }){
 	const [roundLength, setRoundLength] = useState(60*2);
 	const [vibrate, setVibrate] = useState(false);
 	const [xDuration, setXDuration] = useState(600);
+	const [graceDuration, setGraceDuration] = useState(500);
 
 	const storeData = async () => {
 		try{
 			await AsyncStorage.setItem('roundLength', JSON.stringify(roundLength));
 			await AsyncStorage.setItem('vibrate', JSON.stringify(vibrate));
 			await AsyncStorage.setItem('xDuration', JSON.stringify(xDuration));
+			await AsyncStorage.setItem('graceDuration', JSON.stringify(graceDuration));
 			console.log("Successfully stored setting data");
 		}catch(error) {
 			console.log("Error saving setting data");
@@ -157,6 +159,10 @@ function Settings({ navigation }){
   		const xdur = await AsyncStorage.getItem('xDuration');
   		if (xdur !== null) {
     		setXDuration(JSON.parse(xdur));
+  		}
+  		const gdur = await AsyncStorage.getItem('graceDuration');
+  		if (gdur !== null) {
+    		setGraceDuration(JSON.parse(gdur));
   		}
   		console.log("Successfully retrieved setting data");
 		}catch(error) {
@@ -191,6 +197,25 @@ function Settings({ navigation }){
       			setXDuration(5000);
     			}else{
     				setXDuration(pxd);
+    			}
+      	}}
+    		placeholderTextColor="grey"
+      	style={styles.settingsInput}
+      	multiline={false}
+      	inputMode="numeric"
+      />
+      
+      <Text style={styles.text}> Grace Period After X Display (milliseconds)</Text>
+    	<TextInput 
+      	value={graceDuration.toString()}
+      	onChangeText={gd => {					
+      		const pgd = parseInt(gd);
+      		if(isNaN(pgd)){
+      			setGraceDuration(0);
+      		}else if(pgd > 5000){ //The maximum value for grace duration is 5 seconds (5000ms)
+      			setGraceDuration(5000);
+    			}else{
+    				setGraceDuration(pgd);
     			}
       	}}
     		placeholderTextColor="grey"
@@ -398,6 +423,8 @@ function SentencesDisplay({ route, navigation }){
 	const [fSize, setFSize] = useState(36); //Current font size of the sentence, based on sentence length
 	const [xSentence, setXSentence] = useState(""); //Stored version of the sentence with the X's in it, used to avoid generating again on each render
 	const [xDuration, setXDuration] = useState(600); //Setting from async storage. The amount of time in milliseconds to display the X's.
+	const [graceDuration, setGraceDuration] = useState(500) //Setting from async storage. The amount of time in milliseconds after the X's disappear before a button press is classified as a miss.
+	const [grace, setGrace] = useState(false) //Whether or not we are in the grace period, during which you can still press the button
 	const [sound, setSound] = useState(); //Used to hold the sound object
 	
 	const X_TIME = 600; //time in milliseconds to display the X's. Do not set higher than 5000ms because that is the minimum time until the next X display, and this would cause bugs.
@@ -419,6 +446,10 @@ function SentencesDisplay({ route, navigation }){
   		if (xdur !== null) {
     		setXDuration(JSON.parse(xdur));
   		}
+  		const gdur = await AsyncStorage.getItem('graceDuration');
+  		if (gdur !== null) {
+    		setGraceDuration(JSON.parse(gdur));
+  		}
   		console.log("Successfully retrieved setting data");
 		}catch(error) {
   		console.log("Error retrieving setting data");
@@ -435,7 +466,7 @@ function SentencesDisplay({ route, navigation }){
 
 	const soundSrc = require('./assets/tenhz_250us.wav');
 	
-	//Old sound code, only works on Android/iOS
+	//Old sound code, only works on Android
 	/*
 	const playSound = async () => {
 		const soundObj = new Audio.Sound();
@@ -483,7 +514,7 @@ function SentencesDisplay({ route, navigation }){
 	}
 
 	const handleButtonPress = () => {
-		if(xShown){
+		if(xShown || grace){
 				setWins(win => win+1);
 				setPressed(true);
 				setXShown(false);
@@ -538,7 +569,7 @@ function SentencesDisplay({ route, navigation }){
 		setTime(t => t+1);
 	}
 	
-	//Returns the correct sentence according to the provided index value (0, 1, or 2)
+	//Returns the sentence cooresponding to the provided index value (0, 1, or 2)
 	const selectText = (index) => {
 		if(index % 3 == 0){
 			return text1;
@@ -554,7 +585,6 @@ function SentencesDisplay({ route, navigation }){
   	const interval = setInterval(() => {
   		decrementCounter();
   		incrementTimer();
-  		setPressed(false);
 		}, 1000);
   	return () => {
   		clearInterval(interval);
@@ -565,7 +595,6 @@ function SentencesDisplay({ route, navigation }){
   useEffect ( () => { //Show the X's for some time, then turn them off again
 		if(counter == 0){
   		setXShown(true);
-  		setRounds(round => round+1);
   		setXSentence(addXToString(selectText(textIndex), 5));
   		
   		const timeout = setTimeout(() => {
@@ -574,6 +603,18 @@ function SentencesDisplay({ route, navigation }){
   	}
   }, [counter]);
   
+  //Start the grace period after the X's disappear
+  useEffect( () => {
+  	if(xShown == false){
+  		setGrace(true);
+  		
+  		const timeout = setTimeout(() => {
+  			setRounds(round => round+1);
+				setGrace(false);
+			}, graceDuration);
+  	}
+  }, [xShown]);
+  
   useEffect( () => { //Go to the "take a break" screen after five minutes
   	if(time >= roundLength){
   		navigation.goBack();
@@ -581,14 +622,16 @@ function SentencesDisplay({ route, navigation }){
   	}
   }, [time]);
   
-  //Add a Loss if the button is not pressed by the time the X's go away
+  //Add a Loss if the button is not pressed by the time the grace period ends
   useEffect( () => { 
-  	if(!xShown && !pressed && time !== 0){
+  	if(!grace && !pressed && time !== 0){
   		setLosses(loss => loss+1);
   		setMisses(miss => miss+1); 
   		vibrateOrSound();
+  	}else if(!grace && pressed && time != 0){
+  		setPressed(false);
   	}
-  }, [xShown]);
+  }, [grace]);
   
   //Used to determine which monospace font to use for the sentence text, depending on what OS this is running on 
   const monospaceFont = (Platform.OS === 'ios' ? 'Courier New' : 'monospace');
